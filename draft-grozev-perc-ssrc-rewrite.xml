@@ -46,6 +46,20 @@
         <email>eivov@atlassian.com</email>
       </address>
     </author>
+    <author initials='A.' surname='Gouaillard'
+          fullname='Alexandre Gouaillard'>
+    <organization abbrev='CoSMo'>CoSMo Software Consulting</organization>
+    <address>
+      <postal>
+        <street>28 Bukit Pasoh Rd</street>
+        <city>Singapore</city>
+        <code>089842</code>
+        <country>Singapore</country>
+      </postal>
+      <phone>+65-9270-9152</phone>
+      <email>alex.gouaillard@cosmosoftware.io</email>
+    </address>
+  </author>
     <date />
     <abstract>
       <t>
@@ -179,7 +193,7 @@
         values of the length field and the R-bit.
       </t>
     </section>
-    <section title='Alternative format'>
+    <section title='Alternative format' anchor='alt-fmt'>
         <t>
         In the context of SVC an MD might need to modify the M bit of RTP packets
         (for example when the higher layers of a frame are dropped, and the frame
@@ -241,8 +255,11 @@
       </t>
     </section>
     <section title='Acknowledgements'>
-     <t>   
-     </t>
+      <t>   
+        Sergio Garcia Murillo raised the need for MDs to overwrite the M-bit
+        and suggested the alternative extra-byte encoding described in
+        <xref target='alt-fmt'/>. 
+      </t>
     </section>
   </middle>
   <back>
