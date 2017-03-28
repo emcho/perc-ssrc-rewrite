@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?>
+
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+
+<rfc category='std' ipr='trust200902'
+     docName='draft-grozev-perc-ssrc-01'>
+
+<?rfc toc='yes' ?>
+<?rfc symrefs='yes' ?>
+<?rfc sortrefs='yes'?>
+<?rfc iprnotified='no' ?>
+<?rfc strict='yes' ?>
+<?rfc compact='yes' ?>
+  <front>
+
+    <title abbrev='SSRC rewrite'>
+        Allowing Synchronisation Source (SSRC) and Timestamp 
+        Rewriting in Privacy Enhanced RTP Conferencing (PERC)
+    </title>
+    <author initials='B.' surname='Grozev'
+            fullname='Boris Grozev'>
+      <organization abbrev='Atlassian'>Atlassian</organization>
+      <address>
+        <postal>
+          <street>303 Colorado Street, #1600</street>
+          <city>Austin</city>
+          <code>78701</code>
+          <country>USA</country>
+        </postal>
+        <phone>+1-512-640-3000</phone>
+        <email>eivov@atlassian.com</email>
+      </address>
+    </author>
+        <author initials='E.' surname='Ivov'
+            fullname='Emil Ivov'>
+      <organization abbrev='Atlassian'>Atlassian</organization>
+      <address>
+        <postal>
+          <street>303 Colorado Street, #1600</street>
+          <city>Austin</city>
+          <code>78701</code>
+          <country>USA</country>
+        </postal>
+        <phone>+1-512-640-3000</phone>
+        <email>eivov@atlassian.com</email>
+      </address>
+    </author>
+    <date />
+    <abstract>
+      <t>
+        Privacy Enhanced RTP Conferenceing allows middle boxes (MDs) 
+        to overwrite a certain set of fields in RTP packets, as long 
+        as they preserve their original values in the Original Header 
+        Block (OHB). This draft discusses the option of extending the 
+        OHB so that it would also include the RTP timestamp and 
+        Synchornization Source identifier (SSRC) within the set of 
+        fields an SSRC can modify.
+      </t>
+    </abstract>
+  </front>
+  <middle>
+    <section title='Introduction'>
+      <t>
+        In multi-endpoint RTP conferences, packet forwarding 
+        middleboxes  (e.g. Selecting Forwarding Units (SFUs)) adapt to 
+        variable  bandwidth conditions by selectively dropping a 
+        subset of the  packets when forwarding traffic to some or all 
+        recipients. These dropped packets may correspond to certain 
+        participants, but more  importantly simulcast layers.
+      </t>
+      <t>
+        A common model for implementing simulcast consists in having 
+        senders send multiple resolutions to the middlebox, each with 
+        its own SSRC, as well as distinct sequence number and 
+        timestamp spaces. Middleboxes on the other hand, often choose 
+        to  only make receivers aware of a single SSRC, 
+        timestamp and sequence number space, as shown on the 
+        figure below. 
+      </t>
+      <t>
+        <figure title="Trickle State Updates" anchor="fig-arch">
+          <artwork>
+<![CDATA[
+ +------+                     +-----+                     +--------+
+ |      |--SSRC1 Timestamp1-->|     |                     |        |
+ |Sender|--SSRC2 Timestamp2-->| SFU |--SSRC4 Timestamp4-->|Receiver|
+ |      |--SSRC3 Timestamp3-->|     |                     |        |
+ +------+                     +-----+                     +--------+
+]]>
+          </artwork>
+        </figure>
+      </t>
+      <t>
+        The advantage of this model consists in the fact that 
+        receivers require no custom logic to support it as all they 
+        ever see  is a single incoming video stream. 
+      </t>
+      <t>
+        In its current state the PERC double specification does not 
+        allow for SSRC and timestamps to be overwritten, which makes 
+        it impossible for SFUs to continue operating in this manner.
+        This document therefore defines an extended OHB format and 
+        explains the specifics of implementing SSRC and timestamp 
+        rewriting within a PERC environment.
+      </t>
+    </section>
+    <section title="Terminology">
+      <t>
+        The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL
+        NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and
+        "OPTIONAL" in this document are to be interpreted as described
+        in <xref target="RFC2119"/>.
+      </t>
+    </section>
+    <section title='Extended Original Header Block (OHB) Format'>
+      <t>
+        The OHB header extension is defined in the ”double” draft 
+        <xref target="I-D.ietf-perc-double"/>. The current version 
+        defines a structure which can contain atmost the original RTP 
+        Payload Type (PT) and SEQ fields, and this restricts the MD to 
+        only modifying thesetwo fields, while, as explained 
+        before, for the simulcast usecase the MD may also need to 
+        modify the SSRC and the timestamp.
+      </t>
+      <t>
+        This specification extends the OBH structure so that it can 
+        contain the additional fields needed for the WebRTC 1.0 
+        simulcast use case.  It still uses the 4-bit length field of 
+        the header extension header <xref target="RFC5285"/> to encode 
+        the structure of the remainingbytes.  Specifically, it encodes 
+        which of these four fields will be present in the following 
+        bytes:  Payload Type (PT, 1 byte, including an extra R-bit), 
+        Sequence Number (SEQ, 2 bytes), SSRC(4 bytes), Timestamp (TS, 
+        4 bytes).
+      </t>
+      <t>
+        If the length field has a value of 0, 1 or 2 (indicating that
+        there are respectively 1, 2 or 3 more bytes), then the format
+        is exactly the same as in the current draft.  This means that
+        an endpoint which implements the extended format can workwith 
+        the current format without modification.
+      </t>
+      <t>
+        The following table lists the fields which are  encoded (and 
+        the order in which they are included) for the  different 
+        values of the length field and the R-bit. The R-bit is the 
+        most significant bit (MSB) of the PT field, and is present if 
+        and only if the PT field is present. If the extension includes 
+        the PT field, it consists of an R-bit (MSB) and 7 bits for the 
+        original RTP Payload Type. The R-bit is used to encode which 
+        fields are included, when there is ambiguity.
+      </t>
+      <t>
+        <figure title="OHB Fields" anchor="fig-ohb">
+          <artwork>
+<![CDATA[
+      +---+-----------------+--------------+
+      |len| R-bit set       |R-bit not set |
+      +---+-----------------+--------------+
+      | 0 |PT               |              |
+      | 1 |SEQ              |              |
+      | 2 |PT, SEQ          |              | 
+      | 3 |SSRC             |              |
+      | 4 |PT, SSRC         | PT, TS       |
+      | 5 |SEQ, SSRC        |              |
+      | 6 |PT, SEQ, SSRC    | PT, SEQ, TS  |
+      | 7 |SSRC, TS         |              |
+      | 8 |PT, SSRC, TS     |              |
+      | 9 |SEQ, SSRC, TS    |              |
+      | 10|PT, SEQ, SSRC, TS|              |
+      +---+-----------------+--------------+ 
+]]>
+          </artwork>
+        </figure>
+      </t>
+      <t>
+        The fields encoded in the OHB header extension, for different 
+        values of the length field and the R-bit.
+      </t>
+    </section>
+    <section title='Security Considerations'>
+      <t>
+      </t>
+    </section>
+    <section title='Acknowledgements'>
+     <t>   
+     </t>
+    </section>
+  </middle>
+  <back>
+    <references title='Normative References'>
+      <?rfc include="reference.RFC.2119"?>
+    </references>
+    <references title='Informative References'>
+      <?rfc include="reference.RFC.3550"?>
+      <?rfc include="reference.RFC.4588"?>
+      <?rfc include="reference.RFC.5285"?>
+      <reference anchor='I-D.ietf-avtext-framemarking'>
+        <front>
+          <title>Frame Marking RTP Header Extension</title>
+          <author initials='E' surname='Berger' fullname='Espen Berger'>
+            <organization />
+          </author>
+          <author initials='S' surname='Nandakumar' fullname='Suhas Nandakumar'>
+            <organization />
+          </author>
+          <author initials='M' surname='Zanaty' fullname='Mo Zanaty'>
+             <organization />
+          </author>
+          <date month='March' day='13' year='2017' />
+          <abstract>
+            <t>
+              This document describes a Frame Marking RTP header 
+              extension used to convey information about video frames 
+              that is critical for error recovery and packet 
+              forwarding in RTP middleboxes or network nodes.
+              It is most useful when media is encrypted, and essential 
+              when the middlebox or node has no access to the media 
+              decryption keys.  It is also useful for codec-agnostic 
+              processing of encrypted or unencrypted media, while it 
+              also supports extensions for codec-specific information.
+            </t>
+          </abstract>
+        </front>
+        <seriesInfo name='Internet-Draft' value='draft-ietf-avtext-framemarking-04' />
+        <format type='HTML'
+                target='https://tools.ietf.org/html/draft-ietf-avtext-framemarking-04' />
+      </reference>
+      <reference anchor='I-D.ietf-perc-double'>
+        <front>
+          <title>SRTP Double Encryption Procedures</title>
+          <author initials='C' surname='Jennings' fullname='Cullen Jennings'>
+            <organization />
+          </author>
+          <author initials='P' surname='Jones' fullname='Paul Jones'>
+            <organization />
+          </author>
+          <author initials='A' surname='Roach' fullname='Adam Roach'>
+             <organization />
+          </author>
+          <date month='March' day='13' year='2017' />
+          <abstract>
+            <t>
+             In some conferencing scenarios, it is desirable for an 
+             intermediary to be able to manipulate some RTP 
+             parameters, while still providing strong end-to-end 
+             security guarantees.  This document defines SRTP 
+             procedures that use two separate but related 
+             cryptographic contexts to provide "hop-by-hop" and 
+             "end-to-end" security guarantees.  Both the end-to-end 
+             and hop-by-hop cryptographic transforms can utilize an 
+             authenticated encryption with associated data scheme or 
+             take advantage of future SRTP transforms with different 
+             properties.
+            </t>
+          </abstract>
+        </front>
+        <seriesInfo name='Internet-Draft' value='draft-ietf-perc-double-03' />
+        <format type='HTML'
+                target='https://tools.ietf.org/html/draft-ietf-perc-double-03' />
+      </reference>
+    </references>
+  </back>
+</rfc>
