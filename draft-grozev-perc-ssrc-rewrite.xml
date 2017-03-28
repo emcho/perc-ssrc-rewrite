@@ -179,6 +179,63 @@
         values of the length field and the R-bit.
       </t>
     </section>
+    <section title='Alternative format'>
+        <t>
+        In the context of SVC an MD might need to modify the M bit of RTP packets
+        (for example when the higher layers of a frame are dropped, and the frame
+        terminates "early").
+        </t>
+        <t>
+        The original format from the "double" draft <xref target="I-D.ietf-perc-double"/>,
+        as well as the format described above don't allow for the M bit to be modified.
+        </t>
+        <t>
+        One more bit of information which may be desired to be transported from a PERC
+        sender to an MD is whether a packet contains actual payload, or consists only of
+        padding (i.e. discardable data). 
+        </t>
+        <t>
+        These two bits can be transported with the following alternative format for the
+        OHB header extension:
+        <figure title="Alternative OHB format" anchor="fig-ohb-alt">
+          <artwork>
+<![CDATA[
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |   ID  |  len  |P|S|s|T|M|p|0 0|
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+]]>
+          </artwork>
+        </figure>
+        </t>
+
+        <t>
+        Where:
+
+        <list style="hanging">
+          <t>
+            P specifies the presence of a Payload Type byte.
+          </t>
+          <t>
+            S specifies the presence of a Sequence Number field (2 bytes).
+          </t>
+          <t>
+            s specifies the presence of a SSRC field (4 bytes).
+          </t>
+          <t>
+            T specifies the presence of a Timestamp field (4 bytes).
+          </t>
+          <t>
+            M contains the original value of the M bit.
+          </t>
+          <t>
+            p is a padding-only bit, which indicates that the packet
+            contains only padding and can be discarded.
+          </t>
+        </list>
+        </t>
+
+    </section>
     <section title='Security Considerations'>
       <t>
       </t>
